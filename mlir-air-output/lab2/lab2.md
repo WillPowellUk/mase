@@ -22,37 +22,159 @@
 Based on the configuration specified in `pass_args`, only modules of the `linear` type are impacted by the quantization transformation due to the `pass_args` whilst the other modules types are not modified. Other `QUANTIZEABLE_OP` could have been modified such as `relu`, `conv1d` etc. 
 
 ### 4. Write some code to traverse both mg and ori_mg, check and comment on the nodes in these two graphs. You might find the source code for the implementation of summarize_quantization_analysis_pass useful.
+A function is written to traverse two graphs by their nodes and compare their differences.
+```python
+def compare_two_graphs_pass(ori_mg, mg):
+    # Iterate through corresponding nodes in two graphs using zip
+    for mg_node, ori_mg_node in zip(mg.fx_graph.nodes, ori_mg.fx_graph.nodes):
+        
+        # Check if the types of the actual targets of the nodes are different
+        if (type(get_node_actual_target(mg_node)) != type(get_node_actual_target(ori_mg_node))):
+            
+            # Get the types of the original and new modules
+            original_module = get_node_actual_target(ori_mg_node)
+            quant_module = get_node_actual_target(mg_node)
+            
+            # Print a message indicating a difference is found
+            print(f'Difference found:')
+            print(f'    Name: {mg_node.name}')  # Print the name of the node
+            print(f'    Mase Type: {get_mase_type(mg_node)}')  # Print the Mase Type of the node
+            print(f'    Mase Operation: {get_mase_op(mg_node)}\n')  # Print the Mase Operation of the node
+            print(f'    Original Module: {type(original_module)}')
+            print(f'    New Module: {type(quant_module)}\n')  # Print module type differences
 ```
-# Iterate through corresponding nodes in two graphs using zip
-for mg_node, ori_mg_node in zip(mg.fx_graph.nodes, ori_mg.fx_graph.nodes):
-    
-    # Check if the types of the actual targets of the nodes are different
-    if (type(get_node_actual_target(mg_node)) != type(get_node_actual_target(ori_mg_node))):
-        
-        # Get the types of the original and new modules
-        original_module = type(get_node_actual_target(ori_mg_node))
-        new_module = type(get_node_actual_target(ori_mg_node))
-        
-        # Print a message indicating a difference is found
-        print(f'Difference found:')
-        print(f'    Name: {mg_node.name}')  # Print the name of the node
-        print(f'    Mase Type: {get_mase_type(mg_node)}')  # Print the Mase Type of the node
-        print(f'    Mase Operation: {get_mase_op(mg_node)}')  # Print the Mase Operation of the node
-        print(f'    Original Module: {original_module} --> New Module: {new_module}')  # Print module type differences
-        
-        # Get the weights of the nodes from their metadata
-        mg_weight = mg_node.meta["mase"].parameters["common"]["args"]["weight"]
-        ori_mg_weight = ori_mg_node.meta["mase"].parameters["common"]["args"]["weight"]
-        
-        # Print the weights of both nodes
-        print(f"    mg Node: {mg_node.name}, Weight: {mg_weight} \n     ori_mg Node: {ori_mg_node.name}, Weight: {ori_mg_weight}")
-```
-
+This returns an output, indicating that the new model's linear layer has indeed been modified.
+![Pass Output](Results/compare_two_graphs_pass_output.png)
+*Figure 1: Graph Comparison After Quantization of `JSC-Tiny`.*
 
 ### 5. Perform the same quantisation flow to the bigger JSC network that you have trained in lab1. You must be aware that now the `pass_args` for your custom network might be different if you have used more than the `Linear` layer in your network.
+The code to quantise the new model `jsc-will` is very similar to the implementation of `jsc-tiny` shown in lab 2. 
+```python
+# create a MaseDataModule using the `jsc` dataset and new model written in lab1
+batch_size = 256
+model_name = "jsc-will"
+dataset_name = "jsc"
 
+data_module = MaseDataModule(
+    name=dataset_name,
+    batch_size=batch_size,
+    model_name=model_name,
+    num_workers=0,
+)
+data_module.prepare_data()
+data_module.setup()
+
+# Import new checkpoint from JSC-Will
+CHECKPOINT_PATH = "/home/wfp23/ADL/mase/mase_output/Lab_1/JSC-Toy-Vs-JSC-Will/jsc-will_classification_jsc_2024-01-28/software/training_ckpts/best.ckpt"
+model_info = get_model_info(model_name)
+model = get_model(
+    model_name,
+    task="cls",
+    dataset_info=data_module.dataset_info,
+    pretrained=False)
+
+model = load_model(load_name=CHECKPOINT_PATH, load_type="pl", model=model)
+
+# get the input generator
+input_generator = InputGenerator(
+    data_module=data_module,
+    model_info=model_info,
+    task="cls",
+    which_dataloader="train",
+)
+
+# a demonstration of how to feed an input value to the model
+dummy_in = next(iter(input_generator))
+_ = model(**dummy_in)
+
+# generate the mase graph and initialize node metadata
+mg = MaseGraph(model=model)
+
+mg, _ = init_metadata_analysis_pass(mg, None)
+mg, _ = add_common_metadata_analysis_pass(mg, {"dummy_in": dummy_in})
+mg, _ = add_software_metadata_analysis_pass(mg, None)
+
+pass_args = {
+    "by": "type",
+    "default": {"config": {"name": None}},
+    "linear": {
+        "config": {
+            "name": "integer",
+            # data
+            "data_in_width": 8,
+            "data_in_frac_width": 4,
+            # weight
+            "weight_width": 8,
+            "weight_frac_width": 4,
+            # bias
+            "bias_width": 8,
+            "bias_frac_width": 4,
+        },
+        }
+    }
+
+ori_mg = MaseGraph(model=model)
+ori_mg, _ = init_metadata_analysis_pass(ori_mg, None)
+ori_mg, _ = add_common_metadata_analysis_pass(ori_mg, {"dummy_in": dummy_in})
+
+mg, _ = quantize_transform_pass(mg, pass_args)
+summarize_quantization_analysis_pass(ori_mg, mg, save_dir="quantize_summary")
+compare_two_graphs_pass(ori_mg, mg)
 ```
+![jsc-will](Results/compare_two_graphs_pass_jsc-will.png)
+*Figure 2: Graph Comparison After Quantization of `JSC-Will`. N.B. For Clarity, the Output is Cropped So that Only the First 2 of 4 Differences are Displayed.*
 
+Evident from the graph, after employing quantization for `JSC-Will`, each of the 4 Linear layers are modified as expected. 
+### 6. Write code to show and verify that the weights of these layers are indeed quantised. You might need to go through the source code of the implementation of the quantisation pass and also the implementation of the [Quantized Layers](../../machop/chop/passes/transforms/quantize/quantized_modules/linear.py).
+The `compare_two_graphs_pass` function has been modified to demonstrate that the weights of each of the Linear layers have indeed been quantized.
+```python
+def compare_two_graphs_pass(ori_mg, mg):
+    # Iterate through corresponding nodes in two graphs using zip
+    for mg_node, ori_mg_node in zip(mg.fx_graph.nodes, ori_mg.fx_graph.nodes):
+        
+        # Check if the types of the actual targets of the nodes are different
+        if (type(get_node_actual_target(mg_node)) != type(get_node_actual_target(ori_mg_node))):
+            
+            # Get the types of the original and new modules
+            original_module = get_node_actual_target(ori_mg_node)
+            quant_module = get_node_actual_target(mg_node)
+            
+            # Print a message indicating a difference is found
+            print(f'Difference found:')
+            print(f'    Name: {mg_node.name}')  # Print the name of the node
+            print(f'    Mase Type: {get_mase_type(mg_node)}')  # Print the Mase Type of the node
+            print(f'    Mase Operation: {get_mase_op(mg_node)}\n')  # Print the Mase Operation of the node
+            print(f'    Original Module: {type(original_module)}')
+            print(f'    New Module: {type(quant_module)}\n')  # Print module type differences
+            
+            # Get the precision and types of the weights of the nodes from their metadata
+            mg_precision = mg_node.meta["mase"].parameters["common"]["args"]["weight"]["precision"]
+            ori_mg_precision = ori_mg_node.meta["mase"].parameters["common"]["args"]["weight"]["precision"]
+
+            mg_type = mg_node.meta["mase"].parameters["common"]["args"]["weight"]["type"]
+            ori_mg_type = ori_mg_node.meta["mase"].parameters["common"]["args"]["weight"]["type"]
+
+            print(f"    Original Node: {ori_mg_node.name}\tPrecision: {ori_mg_precision}")
+            print(f"    Original Node: {ori_mg_node.name}\tType: {ori_mg_type}\n")
+
+            print(f"    New Node: {mg_node.name}\tPrecision: {mg_precision}")
+            print(f"    New Node: {mg_node.name}\tType: {mg_type}")
+            
+            '''
+            The functionality to update the meta information for that entry is not implemented yet.
+            Since quantization happens "on-the-fly", after the forward is executed).
+            As discussed with the TAs, manually quantizing the weights using the method 
+            _LinearBase(torch.nn.Linear)::forward is sufficient in demonstrating the quantization process.
+            '''
+            quantized_weights = quant_module.w_quantizer(original_module.weight)
+            print(f'    Original weight of module: {original_module.weight}')
+            print(f'    Weight of quantized module: {quantized_weights}')
 ```
+![Quantization Weight Verification](Results/quantization-weight-verification.png)
+*Figure 3: Quantization Weight Change Verification of `JSC-Will`.*
 
-### 6. Write code to show and verify that the weights of these layers are indeed quantised. You might need to go through the source code of the implementation of the quantisation pass and also the implementation of the [Quantized Layers](../../machop/chop/passes/transforms/quantize/quantized_modules/linear.py) .
+As shown, the model's weights change after quantization provided `quant_module.w_quantizer()` is called in the forward pass.
+
+## Optional Task: Write your own pass
+### Implement a pass to count the number of FLOPs (floating-point operations) and BitOPs (bit-wise operations).
+

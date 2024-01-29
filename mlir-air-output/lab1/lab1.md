@@ -43,7 +43,7 @@ Smaller batch sizes might require more updates and hence more epochs to converge
 ### 4. Implement a network that has in total around 10x more parameters than the toy network.
 `JSC-Toy` has a total of 327 parameters, hence we aim to create a new network named `JSC-Will` with approximately 3200 paramters.
 
-```
+```python
 class JSC_Will(nn.Module):
     def __init__(self, info):
         super(JSC_Will, self).__init__()
