@@ -1,6 +1,6 @@
 # LAB 1
 ## Varying the Parameters
-### 1. What is the impact of varying batch sizes and why? {#batch}
+### 1. What is the impact of varying batch sizes and why?
 
 Batch sizes of 10, 20, 50 and 100 will be tested using the `JSC-Tiny` model on the `JSC` dataset. All other hyperparamters are set to the default machop values most importantly - Learning Rate: 1e-5, Max Epochs: 20.
 ![Batch Size Learning Curve](Results/batch_size_lc.png)
@@ -75,8 +75,7 @@ class JSC_Will(nn.Module):
 This model has 3200 paramters, with 4 linear layers with ReLU used the activation function throughout. Batch Normalization was employed at each layer to reduce internal covariate shift, speeding up and stabilizing the training. An additional dropout layer was included after the largest addition of neurons to reduce overfitting.
 
 ### 5. Test your implementation and evaluate its performance.
-The `JSC-Will` model will be evaluated against `JSC-Toy` using the same hyperparameters from the tuned`JSC-Tiny` (117 paramters) model, [see Section 1-3](#batch). 
-
+The `JSC-Will` model will be evaluated against `JSC-Toy` using the same hyperparameters from the tuned`JSC-Tiny` (117 paramters) model, [see Section 1-3](#1-what-is-the-impact-of-varying-batch-sizes-and-why).
 ![Toy Vs Will Learning Curve](Results/JSC-WillvsJSC-tiny.png)
 *Figure 6: Train Learning Curve Model Comparison Between `JSC-Will` and `JSC-Tiny`.*
 
