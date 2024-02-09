@@ -1,0 +1,52 @@
+[
+    {
+        "search_space": {
+            "by": "name",
+            "seq_blocks_2": {
+                "config": {
+                    "name": "output_only",
+                    "channel_multiplier": 1
+                }
+            },
+            "seq_blocks_4": {
+                "config": {
+                    "name": "both",
+                    "channel_multiplier": 1
+                }
+            },
+            "seq_blocks_6": {
+                "config": {
+                    "name": "input_only",
+                    "channel_multiplier": 1
+                }
+            }
+        },
+        "accuracy": 0.7328462600708008,
+        "loss": 0.7602633833885193
+    },
+    {
+        "search_space": {
+            "by": "name",
+            "seq_blocks_2": {
+                "config": {
+                    "name": "output_only",
+                    "channel_multiplier": 2
+                }
+            },
+            "seq_blocks_4": {
+                "config": {
+                    "name": "both",
+                    "channel_multiplier": 2
+                }
+            },
+            "seq_blocks_6": {
+                "config": {
+                    "name": "input_only",
+                    "channel_multiplier": 2
+                }
+            }
+        },
+        "accuracy": 0.4632553458213806,
+        "loss": 1.1341160535812378
+    }
+]

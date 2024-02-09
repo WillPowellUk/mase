@@ -224,6 +224,7 @@ Question 2
 def brute_force_search(search_spaces, json_file):
     best_accuracy = 0.0
     best_search_space = None
+    results = []
     for search_space in search_spaces:
         model = JSC_Three_Linear_Layers()
         mg = MaseGraph(model)
@@ -242,14 +243,17 @@ def brute_force_search(search_spaces, json_file):
         if accuracy > best_accuracy:
             best_accuracy = accuracy
             best_search_space = search_space
-        data_to_store = {
+
+        # Append the new result to the results list
+        results.append({
             "search_space": search_space,
             "accuracy": metrics[0]['test_acc_epoch'],
             "loss": metrics[0]['test_loss_epoch']
-        }
-        # store to json
-        with open(json_file, 'w') as f:
-            json.dump(data_to_store, f)
+        })
+
+    # Write the results list to the JSON file
+    with open(json_file, 'w') as f:
+        json.dump(results, f)
 
     return best_accuracy, best_search_space
 
@@ -281,7 +285,7 @@ dataset_name = "jsc"
 num_workers = os.cpu_count()
 optimizer = "adam"
 max_epochs: int = 2
-# max_steps: int = -1
+max_steps: int = -1
 gradient_accumulation_steps: int = 1
 learning_rate: float = 5e-3
 weight_decay: float = 0.0
@@ -309,7 +313,7 @@ for multiplier in channel_multipliers:
     search_spaces.append(deepcopy(pass_config))
 
 # find the best accuracy and the best multipliers, json results are also stored
-best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search.json")
+best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search_Q2.json")
 
 print(f"Best accuracy: {best_accuracy}")
 print(f"Best search space: {best_search_space}")
@@ -320,38 +324,6 @@ Question 3
 
 
 '''
-# batch_size = 128
- 
-# model_name = "jsc-three-linear-layers"
-# dataset_name = "jsc"
-# task = "cls"
- 
-# model_info = get_model_info(model_name)
-# dataset_info = get_dataset_info(dataset_name)
- 
-# data_module = MaseDataModule(
-#     name=dataset_name,
-#     batch_size=batch_size,
-#     model_name=model_name,
-#     num_workers=0,
-# )
- 
-# data_module.prepare_data()
-# data_module.setup()
- 
-# plt_trainer_args = {
-#     "max_epochs": 5,
-#     "max_steps": -1,
-#     "devices": 1,
-#     "num_nodes": 1,
-#     "accelerator": 'gpu',
-#     "strategy": 'auto',
-#     "fast_dev_run": False,
-#     "precision": "16-mixed",
-#     "accumulate_grad_batches": 1,
-#     "log_every_n_steps": 50,
-# }
-
 def redefine_linear_transform_pass(graph, pass_args=None):
     main_config = pass_args.pop('config')
     default = main_config.pop('default', None)
@@ -379,61 +351,6 @@ def redefine_linear_transform_pass(graph, pass_args=None):
             parent_name, name = get_parent_name(node.target)
             setattr(graph.modules[parent_name], name, new_module)
     return graph, {}
- 
- 
-# def brute_force(search_spaces):
- 
-#   best_acc = 0
- 
-#   recorded_accs = []
- 
-#   for i, config in enumerate(search_spaces):
-#     model = JSC_Three_Linear_Layers()
-#     config = copy.deepcopy(config)
- 
-#     mg = MaseGraph(model=model)
-#     mg, _ = init_metadata_analysis_pass(mg, None)
- 
-#     print("Original Graph:")
-#     for block in mg.model.seq_blocks._modules:
-#       print(f"Block number {block}: {mg.model.seq_blocks._modules[block]}")
- 
-#     mg, _ = redefine_linear_transform_pass(mg, {"config": config})
- 
-#     print("Expanded Graph:")
-#     for block in mg.model.seq_blocks._modules:
-#       print(f"Block number {block}: {mg.model.seq_blocks._modules[block]}")
- 
-#     model = mg.model
- 
-#     input_generator = InputGenerator(
-#         data_module=data_module,
-#         model_info=model_info,
-#         task="cls",
-#         which_dataloader="train",
-#     )
- 
-#     train(model, model_info, data_module, dataset_info, task,
-#           optimizer="adam", learning_rate=1e-5, weight_decay=0,
-#           plt_trainer_args=plt_trainer_args, auto_requeue=False,
-#           save_path=None, visualizer=None, load_name=None, load_type=None)
- 
-#     test_results = test(model, model_info, data_module, dataset_info, task,
-#                         optimizer="adam", learning_rate=1e-5, weight_decay=0,
-#                         plt_trainer_args=plt_trainer_args, auto_requeue=False,
-#                         save_path=None, visualizer=None, load_name=None, load_type=None,
-#                       return_test_results=True)
- 
-#     acc_avg = test_results[0]['test_acc_epoch']
-#     loss_avg = test_results[0]['test_loss_epoch']
-#     recorded_accs.append(acc_avg)
- 
-#     if acc_avg > best_acc:
-#       best_acc = acc_avg
-#       best_multiplier_1 = config['seq_blocks_2']['config']['channel_multiplier']
-#       best_multiplier_2 = config['seq_blocks_6']['config']['channel_multiplier']
- 
-#   return best_acc, best_multiplier_1, best_multiplier_2, recorded_accs
 
 ### Define Search Space
 pass_config = {
@@ -460,7 +377,7 @@ pass_config = {
     },
 }
 
-channel_multipliers = [1, 2, 3, 4, 5, 6]
+channel_multipliers = [1, 2, 3, 4]
  
 search_spaces = []
 for channel_multiplier_1 in channel_multipliers:
@@ -470,11 +387,9 @@ for channel_multiplier_1 in channel_multipliers:
     pass_config['seq_blocks_4']['config']['channel_multiplier_out'] = channel_multiplier_2
     pass_config['seq_blocks_6']['config']['channel_multiplier'] = channel_multiplier_2
     search_spaces.append(deepcopy(pass_config))
- 
-metric = MulticlassAccuracy(num_classes=5)
 
 # find the best accuracy and the best multiplier, json results are also stored
-best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search.json")
+best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search_Q3.json")
 
 print(f"Best accuracy: {best_accuracy}")
 print(f"Best search space: {best_search_space}")
