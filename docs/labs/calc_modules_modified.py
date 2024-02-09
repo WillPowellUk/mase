@@ -128,7 +128,7 @@ def calculate_modules(module, in_data, out_data):
             "output_buffer_size": out_data[0].numel(),
         }
 
-    elif isinstance(module, torch.nn.modules.batchnorm.BatchNorm2d):
+    elif isinstance(module, torch.nn.modules.batchnorm.BatchNorm2d) or isinstance(module, torch.nn.modules.batchnorm.BatchNorm1d):
         # Accesses to E[x] and Var[x] (all channel size)
         total_parameters = 2 * module.num_features
         # (x-running_mean)/running variance

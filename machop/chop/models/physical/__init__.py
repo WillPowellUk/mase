@@ -6,7 +6,7 @@ PHYSICAL_MODELS = {
     "jsc-will": {
         "model": get_jsc_will,
         "info": MaseModelInfo(
-            "jsc-s",
+            "jsc-will",
             model_source="physical",
             task_type="physical",
             physical_data_point_classification=True,
@@ -16,7 +16,7 @@ PHYSICAL_MODELS = {
     "jsc-three-linear-layers": {
         "model": get_jsc_three_linear_layers,
         "info": MaseModelInfo(
-            "jsc-s",
+            "jsc-three-linear-layers",
             model_source="physical",
             task_type="physical",
             physical_data_point_classification=True,

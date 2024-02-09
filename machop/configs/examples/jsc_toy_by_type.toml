@@ -30,7 +30,7 @@ name = "integer"
 name = "graph/quantize/mixed_precision_ptq"
 
 [search.search_space.setup]
-by = "name"
+by = "type"
 
 [search.search_space.seed.default.config]
 # the only choice "NA" is used to indicate that layers are not quantized by default

@@ -1,24 +1,20 @@
-# LAB 3
+import torch
+from torchmetrics.classification import MulticlassAccuracy
+import time
+import subprocess
+import psutil
+import numpy as np
+import matplotlib.pyplot as plt
 
-### 1. Explore additional metrics that can serve as quality metrics for the search process. For example, you can consider metrics such as latency, model size, or the number of FLOPs (floating-point operations) involved in the model.
-Three additional metrics which are very important to analyse are:
+from chop.passes.graph.transforms import (
+    quantize_transform_pass,
+    summarize_quantization_analysis_pass,
+)
 
-* **Latency** refers to the time it takes for an input to go through the model during the forward pass and produce an output - the inference time. This is a critical measurement of any model that has the intention of deployment into a real-life commercial setting. 
+metric = MulticlassAccuracy(num_classes=5)
+start = torch.cuda.Event(enable_timing=True)
+end = torch.cuda.Event(enable_timing=True)
 
-* **CPU/GPU Utilization** utilization can help identify how effectively a DL model uses the computational resources. High utilization rates might indicate good efficiency, whereas low utilization could suggest bottlenecks or inefficiencies in the model architecture, i.e. during synchronization and joining of threads. It also is directly proportional to power consumption which is a critical metric to understand if the model is feasible in terms of cost. By optimizing utilization, the model can achieve better performance without necessarily scaling up hardware resources, leading to cost savings.
-
-* The number of **FLOPS** (Floating Point Operations Per Second) is calculated by the pre-defined function applied to each type of nn.module. This will correlate to both model-size and latency, although after optimization, like quantization, latency will decrease whilst FLOPS will not. FLOPS can help to understand the maximum computational capabilities of the hardware being used, and decide on hardware to be used both during training and inference.
-
-### 2. Implement some of these additional metrics and attempt to combine them with the accuracy or loss quality metric.
-
-The key metrics discussed in [Task 1](#1-explore-additional-metrics-that-can-serve-as-quality-metrics-for-the-search-process-for-example-you-can-consider-metrics-such-as-latency-model-size-or-the-number-of-flops-floating-point-operations-involved-in-the-model
-) are now implemented in addition to accuracy and loss for the search-space defined. 
-
-In models predicting class probabilities, cross-entropy loss encourages accurate class prediction by penalizing incorrect probabilities. As loss decreases, accuracy typically increases, indicating better model performance. Cross-entropy, defined as $H(P^*, P) = -\sum_{i}{M} P^*(i) \log P(i)$, inversely mirrors accuracy measured by `MulticlassAccuracy`, which assesses overall class accuracy. Thus, only one metric is required to be measured and in this case we will use `MulticlassAccuracy`.
-
-
-Firstly, a way to visualise the search space grid is written
-```python
 def plot_metric_search_spaces(metric, title, x_label, y_label, search_space_config_x, search_space_config_y):
     """
     This function visualizes the performance metrics of different quantization configurations as a 3D bar chart. 
@@ -80,29 +76,10 @@ def plot_metric_search_spaces(metric, title, x_label, y_label, search_space_conf
 
     # Show the plot
     plt.show()
-```
-
-Then the search space is incremented through brute force, for accuracy, loss, latency, and hardware (GPU/CPU) utilization metrics.
-
-```python
-import torch
-from torchmetrics.classification import MulticlassAccuracy
-import time
-import subprocess
-import psutil
-
-mg, _ = init_metadata_analysis_pass(mg, None)
-mg, _ = add_common_metadata_analysis_pass(mg, {"dummy_in": dummy_in})
-mg, _ = add_software_metadata_analysis_pass(mg, None)
-
-metric = MulticlassAccuracy(num_classes=5)
-num_batchs = 5
-
-start = torch.cuda.Event(enable_timing=True)
-end = torch.cuda.Event(enable_timing=True)
+    plt.savefig(f'{title}.png')
 
 
-def additional_metrics(mg, search_spaces, plot=True):
+def additional_metrics(mg, data_module, search_spaces, num_batchs, plot=True):
     """
     This function evaluates the performance of different quantization configurations on a neural network model 
     by measuring various metrics such as accuracy, loss, latency, and hardware (GPU/CPU) utilizations. 
@@ -120,7 +97,6 @@ def additional_metrics(mg, search_spaces, plot=True):
     - None. The function prints average values for accuracy, loss, latency, and hardware utilizations directly. 
     If the 'plot' argument is True, it also generates plots for these metrics.
     """
-
     def get_gpu_power_usage():
         try:
             smi_output = subprocess.check_output(['nvidia-smi', '--query-gpu=power.draw', '--format=csv,noheader,nounits']).decode().strip()
@@ -164,10 +140,6 @@ def additional_metrics(mg, search_spaces, plot=True):
 
             # Reset CPU utilization measurement
             _, _ = get_cpu_utilization()  # Call once to reset the measurement
-
-            # Measure GPU power usage before prediction
-            if gpu_found:
-                gpu_power_before = sum(get_gpu_power_usage()[0])
 
             # Measure GPU power usage before prediction and warm up the GPU
             if gpu_found:
@@ -257,73 +229,3 @@ def additional_metrics(mg, search_spaces, plot=True):
         if cpu_found:
             plot_metric_search_spaces(recorded_cpu_utilizations, 'Avg CPU Usage per Batch (W)', 'Weights in Frac Widths Index', 'Data in Frac Widths Index', w_in_frac_widths, data_in_frac_widths)
     return
-```
-
-After passing through the `jsc-tiny` mase graph and using the search space paramters defined in `lab3.ipynb`, the following output is obtained:
-
-```
-Average Accuracy per Batch: 0.1591
-Average Loss per Batch: 1.632
-Average Latency per Batch: 676.12 nanoseconds
-Average CPU Power Usage per Batch: 10.29W
-```
-
-<table style="width: 100%; table-layout: fixed;">
-  <tr>
-    <td style="padding: 10px;"><img src="Results/accuracy_frac_widths.png" alt="Image 1" style="width: 100%; height: auto;"/></td>
-    <td style="padding: 10px;"><img src="Results/latency_frac_width.png" alt="Image 2" style="width: 100%; height: auto;"/></td>
-  </tr>
-  <tr>
-    <td style="padding: 10px;"><img src="Results/GPU_frac_width.png" alt="Image 3" style="width: 100%; height: auto;"/></td>
-    <td style="padding: 10px;"><img src="Results/CPU_frac_width.png" alt="Image 4" style="width: 100%; height: auto;"/></td>
-  </tr>
-</table>
-
-*Figure 1: Brute force search space investigating the effect of data in frac widths and weights in frac widths in terms of accuracy, latency and GPU/CPU usage.*
-Accuracy showed to be very sporadic for this network due to the non-determinsitic nature of inference which is far more influential than the quantization of such a small model. Latency is not correlated to the frac width/data width since the quantization occurs during the forward pass in MASE. However, if quantization occured during initialization, increasing the quantization should result in a more larger latency. 
-
-CPU and GPU usuage also shows no corelation due to the quantization issue described above. This code measures the usuage by ensuring the GPU has 'warmed up' before taking a measurement. However for such a small model, the measurement for latency make not be very accuracte since the resolution of the `psutil` and `torch.cuda.Event` are both limited. However, this strategy may produce more precise outcomes when model size increases and thus inference and model training are larger. 
-
-### 3. Implement the brute-force search as an additional search method within the system, this would be a new search strategy in MASE.
-To integrate a brute-force search in addition to a TPE based search, the following code is modified:
-
-* In `optuna.py` the following code is appended to the switch case inside `def sampler_map(self, name)`
-```python
-case "brute_force":
-    sampler = optuna.samplers.BruteForceSampler()
-```
-* In `jsc_toy_by_type.toml`, the sampler inside `search.strategy.setup` is changed from `sampler = "tpe"` to `sampler = "bruteforce"`
-
-After running through the MASE command line interface, the following is obtained:
-```
-INFO     Initialising model 'jsc-tiny'...
-INFO     Initialising dataset 'jsc'...
-INFO     Project will be created at /home/wfp23/ADL/mase/mase_output/jsc-tiny
-INFO     Loaded pytorch lightning checkpoint from /home/wfp23/ADL/mase/mase_output/Lab_1/JSC-Tiny/software/training_ckpts/best.ckpt
-INFO     Loaded model from /home/wfp23/ADL/mase/mase_output/Lab_1/JSC-Tiny/software/training_ckpts/best.ckpt.
-INFO     Building search space...
-INFO     Search started...
-/home/wfp23/ADL/mase/machop/chop/actions/search/strategies/optuna.py:57: ExperimentalWarning: BruteForceSampler is experimental (supported from v3.1.0). The interface can change in the future.
-  sampler = optuna.samplers.BruteForceSampler()
- 60%|█████████████▏        | 18/30 [00:18<00:12,  1.04s/it, 18.66/20000 seconds]
-INFO     Best trial(s):
-Best trial(s):
-|    |   number | software_metrics                   | hardware_metrics                                  | scaled_metrics                               |
-|----+----------+------------------------------------+---------------------------------------------------+----------------------------------------------|
-|  0 |        3 | {'loss': 1.067, 'accuracy': 0.607} | {'average_bitwidth': 4.0, 'memory_density': 8.0}  | {'accuracy': 0.607, 'average_bitwidth': 0.8} |
-|  1 |        5 | {'loss': 1.038, 'accuracy': 0.616} | {'average_bitwidth': 8.0, 'memory_density': 4.0}  | {'accuracy': 0.616, 'average_bitwidth': 1.6} |
-|  2 |        6 | {'loss': 1.077, 'accuracy': 0.588} | {'average_bitwidth': 2.0, 'memory_density': 16.0} | {'accuracy': 0.588, 'average_bitwidth': 0.4} |
-INFO     Searching is completed
-```
-18 searches are ran - this corresponds to the number of combinations in the search space. Interestingly, no trials were consistently acheiving the highest metrics. This is likely due to the small amounts of parameters in the `jsc-tiny` model, making it more sensitive to non-deterministic initialization as explained in [Task 2](#2-implement-some-of-these-additional-metrics-and-attempt-to-combine-them-with-the-accuracy-or-loss-quality-metric).
-
-### 4. Compare the brute-force search with the TPE based search, in terms of sample efficiency. Comment on the performance difference between the two search methods.
-Expanding the search space to a size where the BruteForce sampler cannot assess every combination makes it unable to test all possibilities. Tree-structured Parzen Estimator (TPE) is a Bayesian optimization technique; it models the probability distribution of the hyperparameters given the outcomes of previous evaluations. As, highlighted in [Figure 2](#pass-output), the TPE sampler identifies an optimal set of hyperparameters early in the process. In contrast, the brute force method struggles to uncover this optimal combination within the specified number of attempts, showcasing the TPE sampler's superiority in navigating extensive search spaces.
-
-The effectiveness of the TPE sampler, designed for intelligent hyperparameter selection in large and complex spaces, contrasts with its performance in smaller search spaces, such as the one defined in the initial TOML file with only 18 possible combinations. Here, the advanced probabilistic modeling of the TPESampler does not significantly outperform the BruteForceSampler's exhaustive search, due to the limited number of combinations.
-
-![Pass Output](Results/tpe_vs_bruteforce_comparison.png)
-
-*Figure 2: Performance of trials vs accuracy for TPE vs Brute Force based search using the `JSC-Tiny` model.*
-
-In this experiment, both took an equal amount of time to run (31s on a cpu). This is because both samplers were not stopped early and ran through each combination. However, TPE consistently acheived higher accuracies during early combinations due to its optimization strategy.
