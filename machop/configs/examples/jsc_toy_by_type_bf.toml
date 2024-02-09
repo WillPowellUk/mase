@@ -7,7 +7,7 @@ max_epochs = 5
 batch_size = 512
 learning_rate = 1e-2
 accelerator = "cpu"
-project = "jsc-tiny"
+project = "jsc-tiny_BF_1"
 seed = 42
 log_every_n_steps = 5
 # load_name = "../mase_output/toy_toy_tiny/software/training_ckpts/best.ckpt"
@@ -62,16 +62,17 @@ eval_mode = true
 
 [search.strategy.sw_runner.basic_evaluation]
 data_loader = "val_dataloader"
-num_samples = 512
+num_samples = 256
 
 [search.strategy.hw_runner.average_bitwidth]
 compare_to = 32 # compare to FP32
 
 [search.strategy.setup]
 n_jobs = 1
-n_trials = 30
+n_trials = 18
 timeout = 20000
-sampler = "bruteforce"
+# sampler = "tpe" # Change to reflect brute force method
+sampler = "brute_force"
 # sum_scaled_metrics = true # single objective
 # direction = "maximize"
 sum_scaled_metrics = false # multi objective

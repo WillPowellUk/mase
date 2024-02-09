@@ -89,7 +89,6 @@ def calculate_modules(module, in_data, out_data):
 
     elif isinstance(module, torch.nn.Linear):
         # One computation per weight, for each batch element.
-
         # Not sure which input tensor to use if there are multiple of them.
         # TODO: check if this is correct
         # TODO: also consider bias?

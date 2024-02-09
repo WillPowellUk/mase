@@ -9,13 +9,13 @@ Three additional metrics which are very important to analyse are:
 
 * The number of **FLOPS** (Floating Point Operations Per Second) is calculated by the pre-defined function applied to each type of nn.module. This will correlate to both model-size and latency, although after optimization, like quantization, latency will decrease whilst FLOPS will not. FLOPS can help to understand the maximum computational capabilities of the hardware being used, and decide on hardware to be used both during training and inference.
 
-### 2. Implement some of these additional metrics and attempt to combine them with the accuracy or loss quality metric. It's important to note that in this particular case, accuracy and loss actually serve as the same quality metric (do you know why?).
+### 2. Implement some of these additional metrics and attempt to combine them with the accuracy or loss quality metric.
+
 The key metrics discussed in [Task 1](#1-explore-additional-metrics-that-can-serve-as-quality-metrics-for-the-search-process-for-example-you-can-consider-metrics-such-as-latency-model-size-or-the-number-of-flops-floating-point-operations-involved-in-the-model
 ) are now implemented in addition to accuracy and loss for the search-space defined. 
 
-Accuracy and loss serve as the same quality metric since cross entropy Loss is defined as: 
-$H(P^*, P) = -\sum_{i}{M} P^*(i) \log P(i)$
-where $P^*$ is the true class probablity distribution and $P$ is the predicted class probablity distribution and $M$ is the number of classes. Since accuracy is measured using the `MulticlassAccuracy` metric which calculates the total accuracy for each of the classes collectively, cross entropy is inversley proportional, hence serves as the same metric and only one can be implemented. 
+In models predicting class probabilities, cross-entropy loss encourages accurate class prediction by penalizing incorrect probabilities. As loss decreases, accuracy typically increases, indicating better model performance. Cross-entropy, defined as $H(P^*, P) = -\sum_{i}{M} P^*(i) \log P(i)$, inversely mirrors accuracy measured by `MulticlassAccuracy`, which assesses overall class accuracy. Thus, only one metric is required to be measured and in this case we will use `MulticlassAccuracy`.
+
 
 Firstly, a way to visualise the search space grid is written
 ```python
@@ -169,8 +169,15 @@ def additional_metrics(mg, search_spaces, plot=True):
             if gpu_found:
                 gpu_power_before = sum(get_gpu_power_usage()[0])
 
-            # Start measuring time
+            # Measure GPU power usage before prediction and warm up the GPU
             if gpu_found:
+                gpu_power_before = sum(get_gpu_power_usage()[0])
+                steps = 10
+
+                # Warmup GPU 
+                for _ in range(steps):
+                    mg.model(xs) # don't record time
+
                 start_gpu = torch.cuda.Event(enable_timing=True)
                 end_gpu = torch.cuda.Event(enable_timing=True)
                 start.record()
@@ -264,28 +271,57 @@ Average CPU Power Usage per Batch: 10.29W
 <table style="width: 100%; table-layout: fixed;">
   <tr>
     <td style="padding: 10px;"><img src="Results/accuracy_frac_widths.png" alt="Image 1" style="width: 100%; height: auto;"/></td>
-    <td style="padding: 10px;"><img src="Results/loss_frac_width.png" alt="Image 2" style="width: 100%; height: auto;"/></td>
+    <td style="padding: 10px;"><img src="Results/latency_frac_width.png" alt="Image 2" style="width: 100%; height: auto;"/></td>
   </tr>
   <tr>
-    <td style="padding: 10px;"><img src="Results/CPU_frac_width.png" alt="Image 3" style="width: 100%; height: auto;"/></td>
-    <td style="padding: 10px;"><img src="Results/latency_frac_width.png" alt="Image 4" style="width: 100%; height: auto;"/></td>
+    <td style="padding: 10px;"><img src="Results/GPU_frac_width.png" alt="Image 3" style="width: 100%; height: auto;"/></td>
+    <td style="padding: 10px;"><img src="Results/CPU_frac_width.png" alt="Image 4" style="width: 100%; height: auto;"/></td>
   </tr>
 </table>
 
+*Figure 1: Brute force search space investigating the effect of data in frac widths and weights in frac widths in terms of accuracy, latency and GPU/CPU usage.*
+Accuracy showed to be very sporadic for this network due to the non-determinsitic nature of inference which is far more influential than the quantization of such a small model. Latency showed to be slightly correlated to the quantization with frac widths contributing to a larger latency as expected. Increasing the model size should result in a more siginificant difference in latency. CPU and GPU usuage could not be precisely, even with the consideration of warming up the GPU before taking a measurement. This could be due to how short the latency is incomparison to the resolution of the `psutil` and `torch.cuda.Event`. However, this strategy may produce more precise outcomes when model size increases and thus inference and model training are longer. 
 
 ### 3. Implement the brute-force search as an additional search method within the system, this would be a new search strategy in MASE.
 To integrate a brute-force search in addition to a TPE based search, the following code is modified:
 
 * In `optuna.py` the following code is appended to the switch case inside `def sampler_map(self, name)`
 ```python
-case "bruteforce":
+case "brute_force":
     sampler = optuna.samplers.BruteForceSampler()
 ```
 * In `jsc_toy_by_type.toml`, the sampler inside `search.strategy.setup` is changed from `sampler = "tpe"` to `sampler = "bruteforce"`
 
 After running through the MASE command line interface, the following is obtained:
-
-
+```
+INFO     Initialising model 'jsc-tiny'...
+INFO     Initialising dataset 'jsc'...
+INFO     Project will be created at /home/wfp23/ADL/mase/mase_output/jsc-tiny
+INFO     Loaded pytorch lightning checkpoint from /home/wfp23/ADL/mase/mase_output/Lab_1/JSC-Tiny/software/training_ckpts/best.ckpt
+INFO     Loaded model from /home/wfp23/ADL/mase/mase_output/Lab_1/JSC-Tiny/software/training_ckpts/best.ckpt.
+INFO     Building search space...
+INFO     Search started...
+/home/wfp23/ADL/mase/machop/chop/actions/search/strategies/optuna.py:57: ExperimentalWarning: BruteForceSampler is experimental (supported from v3.1.0). The interface can change in the future.
+  sampler = optuna.samplers.BruteForceSampler()
+ 60%|█████████████▏        | 18/30 [00:18<00:12,  1.04s/it, 18.66/20000 seconds]
+INFO     Best trial(s):
+Best trial(s):
+|    |   number | software_metrics                   | hardware_metrics                                  | scaled_metrics                               |
+|----+----------+------------------------------------+---------------------------------------------------+----------------------------------------------|
+|  0 |        3 | {'loss': 1.067, 'accuracy': 0.607} | {'average_bitwidth': 4.0, 'memory_density': 8.0}  | {'accuracy': 0.607, 'average_bitwidth': 0.8} |
+|  1 |        5 | {'loss': 1.038, 'accuracy': 0.616} | {'average_bitwidth': 8.0, 'memory_density': 4.0}  | {'accuracy': 0.616, 'average_bitwidth': 1.6} |
+|  2 |        6 | {'loss': 1.077, 'accuracy': 0.588} | {'average_bitwidth': 2.0, 'memory_density': 16.0} | {'accuracy': 0.588, 'average_bitwidth': 0.4} |
+INFO     Searching is completed
+```
+18 searches are ran - this corresponds to the number of combinations in the search space. Interestingly, no trials were consistently acheiving the highest metrics. This is likely due to the small amounts of parameters in the `jsc-tiny` model, making it more sensitive to non-deterministic initialization as explained in [Task 2](#2-implement-some-of-these-additional-metrics-and-attempt-to-combine-them-with-the-accuracy-or-loss-quality-metric).
 
 ### 4. Compare the brute-force search with the TPE based search, in terms of sample efficiency. Comment on the performance difference between the two search methods.
+Expanding the search space to a size where the BruteForce sampler cannot assess every combination makes it unable to test all possibilities. Tree-structured Parzen Estimator (TPE) is a Bayesian optimization technique; it models the probability distribution of the hyperparameters given the outcomes of previous evaluations. As, highlighted in [Figure 2](#pass-output), the TPE sampler identifies an optimal set of hyperparameters early in the process. In contrast, the brute force method struggles to uncover this optimal combination within the specified number of attempts, showcasing the TPE sampler's superiority in navigating extensive search spaces.
 
+The effectiveness of the TPE sampler, designed for intelligent hyperparameter selection in large and complex spaces, contrasts with its performance in smaller search spaces, such as the one defined in the initial TOML file with only 18 possible combinations. Here, the advanced probabilistic modeling of the TPESampler does not significantly outperform the BruteForceSampler's exhaustive search, due to the limited number of combinations.
+
+![Pass Output](Results/tpe_vs_bruteforce_comparison.png)
+
+*Figure 2: Performance of trials vs accuracy for TPE vs Brute Force based search using the `JSC-Tiny` model.*
+
+In this experiment, both took an equal amount of time to run (31s on a cpu). This is because both samplers were not stopped early and ran through each combination. However, TPE consistently acheived higher accuracies during early combinations due to its optimization strategy.
