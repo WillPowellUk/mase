@@ -19,8 +19,8 @@ from chop.passes.graph import (
     add_software_metadata_analysis_pass,
 )
 
-#from calc_modules_modified import calculate_modules
-from chop.passes.graph.analysis.flop_estimator.calculator import calculate_modules
+from calc_modules_modified import calculate_modules
+# from chop.passes.graph.analysis.flop_estimator.calculator import calculate_modules
 
 
 # %cd /home/wfp23/ADL/mase/machop
@@ -69,4 +69,4 @@ mg, _ = add_common_metadata_analysis_pass(mg, {"dummy_in": dummy_in})
 
 from calc_flops import calculate_flops_mg_analysis_pass
 
-calculate_flops_mg_analysis_pass(mg.graph, None)
+calculate_flops_mg_analysis_pass(mg, None)

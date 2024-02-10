@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import json
 
-with open('/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search_Q2_old.json', 'r') as file:
+with open('/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q2.json', 'r') as file:
     json_data = json.load(file)
 
 # Extracting information for plotting
@@ -25,4 +25,4 @@ ax.set_xticks(channel_multipliers)
 ax.set_xticklabels(channel_multipliers)
 
 plt.show()
-plt.savefig('/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q2_old.png')
+plt.savefig('/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q2.png')

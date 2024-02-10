@@ -312,11 +312,11 @@ for multiplier in channel_multipliers:
     pass_config['seq_blocks_6']["config"]['channel_multiplier'] = multiplier
     search_spaces.append(deepcopy(pass_config))
 
-# find the best accuracy and the best multipliers, json results are also stored
-best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search_Q2.json")
+# # find the best accuracy and the best multipliers, json results are also stored
+# best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q2_2.json")
 
-print(f"Best accuracy: {best_accuracy}")
-print(f"Best search space: {best_search_space}")
+# print(f"Best accuracy: {best_accuracy}")
+# print(f"Best search space: {best_search_space}")
 
 '''
 
@@ -389,7 +389,7 @@ for channel_multiplier_1 in channel_multipliers:
     search_spaces.append(deepcopy(pass_config))
 
 # find the best accuracy and the best multiplier, json results are also stored
-best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/channel_multiplier_search_Q3.json")
+best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q3.json")
 
 print(f"Best accuracy: {best_accuracy}")
 print(f"Best search space: {best_search_space}")

@@ -178,3 +178,68 @@ As shown, the model's weights change after quantization provided `quant_module.w
 ## Optional Task: Write your own pass
 ### Implement a pass to count the number of FLOPs (floating-point operations) and BitOPs (bit-wise operations).
 
+Mase's `calculate_modules function` in `mase/machop/chop/passes/graph/analysis/flop_estimator/calculator/calc_modules.pycalc_modules.py` was modified for FLOPS to be calculated for the `BatchNorm1d` layer `jsc-tiny` model. The number of `BatchNorm1d` is equivalent to `BatchNorm2d` hence this was added to the same conditional statement:  
+```python
+elif  isinstance(module, torch.nn.modules.batchnorm.BatchNorm1d) or isinstance(module, torch.nn.modules.batchnorm.BatchNorm2d):
+    # Accesses to E[x] and Var[x] (all channel size)
+    total_parameters = 2 * module.num_features
+    # (x-running_mean)/running variance
+    # multiply by gamma and beta addition
+    computations = 4 * in_data[0].numel()
+    backward_computations = 4 * in_data[0].numel()
+    return {
+        "total_parameters": total_parameters,
+        "computations": computations,
+        "backward_computations": backward_computations,
+        "input_buffer_size": in_data[0].numel(),
+        "output_buffer_size": out_data[0].numel(),
+    }
+```
+
+To utilise this function, the following pass was created, which traverses through the nodes of the graph, finds the type of layer and its corresponding input and output, and passes this into the modified `calculate_modules`. 
+```python
+import numpy as np
+import torch
+from calc_modules_modified import calculate_modules
+from chop.passes.graph.utils import get_node_actual_target
+
+def calculate_flops_mg_analysis_pass(graph, pass_args: dict):
+    """
+    Calculate the floating-point operations (FLOPs) for the given graph. 
+    This analysis helps in understanding the computational complexity and efficiency of the model, 
+    especially useful for optimizing performance in resource-constrained environments.
+
+    :param graph: The graph to analyze.
+    :type graph: MaseGraph
+    :param pass_args: Additional arguments for the analysis pass.
+    :type pass_args: dict
+
+    :return: A tuple containing the analyzed graph and a dictionary with FLOPs calculation details.
+    :rtype: tuple
+    :return graph: The analyzed graph.
+    :rtype graph: MaseGraph
+    :return dict: A dictionary with the following keys:
+        - 'flop_module_breakdown' (dict): A breakdown of FLOPs by module.
+        - 'total_flops' (int): The total number of floating-point operations for the graph.
+    :rtype dict: dict
+    """
+    flop_calculations = {}
+    total_flops = 0
+    for node in graph.fx_graph.nodes:
+        try:
+            data_in = (node.meta['mase'].parameters['common']['args']['data_in_0']['value'],)
+        except KeyError:
+            data_in = (None,)
+        data_out = (node.meta['mase'].parameters['common']['results']['data_out_0']['value'],)
+
+        module = get_node_actual_target(node)
+        if isinstance(module, torch.nn.Module):
+            module_flops = calculate_modules(module, data_in, data_out)
+            flop_calculations[module] = module_flops
+            total_flops += module_flops['computations']
+
+    print("Flop Caluclation Breakdown: ", flop_calculations)
+    print("\nTotal Flops: ", total_flops)
+
+    return graph, {"flop_module_breakdown": flop_calculations, "total_flops": total_flops}
+```
