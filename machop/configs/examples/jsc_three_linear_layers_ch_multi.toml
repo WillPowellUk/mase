@@ -2,12 +2,12 @@ model = "jsc-three-linear-layers"
 dataset = "jsc"
 task = "cls"
 
-max_epochs = 5
+max_epochs = 10
 batch_size = 512
-learning_rate = 1e-2
+learning_rate = 5e-3
 accelerator = "cpu"
 project = "jsc-three-linear-layers"
-seed = 42
+seed = 0
 log_every_n_steps = 5
 load_name = "/home/wfp23/ADL/mase/machop/Three-linear-layers/jsc-three-linear-layers_classification_jsc_2024-02-08/software/training_ckpts/best.ckpt"
 load_type = "pl"
@@ -15,34 +15,45 @@ load_type = "pl"
 [search.search_space]
 name = "graph/quantize/channel_size_modifier"
 
-#[search.search_space.setup]
-#by = 'name'
+[search.search_space.setup]
+by = 'name'
 
 [search.search_space.seed.default.config]
 # the only choice "NA" is used to indicate that layers are not quantized by default
 name = ["NA"]
-channel_multiplier = [1]
+channel_multiplier = [1, 2, 3, 5]
 
 [search.search_space.seed.seq_blocks_2.config]
 name = ["output_only"]
-channel_multiplier = [1, 2, 3]
+channel_multiplier = [1, 2, 3, 5]
+in_features = [16]
+out_features = [16]
 
 [search.search_space.seed.seq_blocks_4.config]
 name = ["both"]
-channel_multiplier = [1, 2, 3]
+in_features = [16]
+out_features = [16]
+channel_multiplier = [1, 2, 3, 5]
 
 [search.search_space.seed.seq_blocks_6.config]
 name = ["input_only"]
-channel_multiplier = [1, 2, 4]
-
+in_features = [16]
+out_features = [16]
+channel_multiplier = [1, 2, 3, 5]
 
 [search.strategy]
 name = "optuna"
-eval_mode = true
+eval_mode = false
 
-[search.strategy.sw_runner.basic_evaluation]
-data_loader = "val_dataloader"
-num_samples = 512
+[search.strategy.sw_runner.basic_train]
+name = "accuracy"
+data_loader = "train_dataloader"
+num_samples = 1000000
+max_epochs = 10
+lr_scheduler = "linear"
+optimizer = "adam"
+learning_rate = 1e-4
+num_warmup_steps = 0
 
 [search.strategy.hw_runner.average_bitwidth]
 compare_to = 32 # compare to FP32
@@ -51,7 +62,7 @@ compare_to = 32 # compare to FP32
 n_jobs = 1
 n_trials = 20
 timeout = 20000
-sampler = "tpe"
+sampler = "brute_force"
 sum_scaled_metrics = true # single objective
 direction = "maximize"
 
