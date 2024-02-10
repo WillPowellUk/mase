@@ -1,0 +1,11 @@
+model = "jsc-three-linear-layers"
+dataset = "jsc"
+task = "cls"
+
+max_epochs = 5
+batch_size = 512
+learning_rate = 5e-3
+accelerator = "cpu"
+project = "jsc-three-linear-layers-init"
+seed = 0
+log_every_n_steps = 5
