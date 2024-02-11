@@ -104,18 +104,26 @@ class RunnerBasicTrain(SWRunnerBase):
         raise NotImplementedError()
 
     def vision_cls_forward(self, batch, model):
+                raise NotImplementedError()
+
+    def physical_cls_forward(self, batch, model):
         x, y = batch[0].to(self.accelerator), batch[1].to(self.accelerator)
-        logits = model(x)
-        loss = torch.nn.functional.cross_entropy(logits, y)
-        acc = self.metric(logits, y)
+        loss = torch.nn.functional.cross_entropy(model(x), y)
+        acc = self.metric(model(x), y)
         self.loss(loss)
         return {"loss": loss, "accuracy": acc}
 
     def forward(self, task: str, batch: dict, model):
-        if self.model_info.is_vision_model or self.model_info.is_physical_model:
+        if self.model_info.is_vision_model:
             match self.task:
                 case "classification" | "cls":
                     loss = self.vision_cls_forward(batch, model)
+                case _:
+                    raise ValueError(f"task {self.task} is not supported.")
+        elif self.model_info.is_physical_model:
+            match self.task:
+                case "classification" | "cls":
+                    loss = self.physical_cls_forward(batch, model)
                 case _:
                     raise ValueError(f"task {self.task} is not supported.")
         elif self.model_info.is_nlp_model:

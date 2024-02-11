@@ -222,6 +222,22 @@ Question 2
 
 '''
 def brute_force_search(search_spaces, json_file):
+    """
+    This function conducts a brute force search over a set of search spaces to identify the configuration that yields the highest accuracy for a given machine learning model, specifically a model with three linear layers defined by `JSC_Three_Linear_Layers`. 
+
+    Parameters:
+    - search_spaces: A list of dictionaries, where each dictionary represents a different configuration of hyperparameters or model parameters to be tested.
+    - json_file: The path to a JSON file where the results of the search (accuracy and loss for each search space) will be saved.
+
+    The function iterates over each search space configuration, applying the configuration to the model through the `redefine_linear_transform_pass` function. This involves modifying the model's structure or parameters as specified by the `search_space` configuration.
+
+    For each modified model configuration, the function:
+    - Trains the model using predefined training parameters (not shown in the function signature).
+    - Evaluates the model on a test dataset to obtain metrics such as accuracy and loss.
+    - Compares the obtained accuracy with the best accuracy found so far, updating the best accuracy and best search space configuration if the current configuration outperforms the previous best.
+
+    Finally, all results (search space configurations and their corresponding accuracy and loss) are written to the specified JSON file. The function returns the highest accuracy found and the search space configuration that achieved this accuracy.
+    """
     best_accuracy = 0.0
     best_search_space = None
     results = []
@@ -312,11 +328,13 @@ for multiplier in channel_multipliers:
     pass_config['seq_blocks_6']["config"]['channel_multiplier'] = multiplier
     search_spaces.append(deepcopy(pass_config))
 
-# # find the best accuracy and the best multipliers, json results are also stored
-# best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q2_2.json")
+print("Q2")
 
-# print(f"Best accuracy: {best_accuracy}")
-# print(f"Best search space: {best_search_space}")
+# find the best accuracy and the best multipliers, json results are also stored
+best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q2_2.json")
+
+print(f"Best accuracy: {best_accuracy}")
+print(f"Best search space: {best_search_space}")
 
 '''
 
@@ -325,6 +343,24 @@ Question 3
 
 '''
 def redefine_linear_transform_pass(graph, pass_args=None):
+    """
+    This function modifies the linear layers of a given graph according to specified transformation rules. It is designed to dynamically adjust the `in_features` and/or `out_features` of linear layers based on the configuration provided in `pass_args`.
+
+    Parameters:
+    - graph: The computational graph of a model, which contains the structure and modules of the model to be transformed.
+    - pass_args: A dictionary containing the transformation rules and configurations. It must include a 'config' key with sub-keys for each node that should be modified, and a 'default' configuration used for nodes not explicitly mentioned. The 'config' dictionary for each node may specify modifications in three modes:
+        - "output_only": Multiplies `out_features` by a specified factor.
+        - "input_only": Multiplies `in_features` by a specified factor.
+        - "both": Multiplies both `in_features` and `out_features` by specified factors (potentially different for each).
+
+    The function iterates over all nodes in the `graph.fx_graph.nodes` structure. For each node, it looks up the transformation configuration, either the specific one if the node's name is mentioned in `pass_args['config']` or the default one otherwise. Based on this configuration, it adjusts the `in_features`, `out_features`, or both for the linear module associated with the node. It then creates a new linear module with these modified dimensions and replaces the original module in the graph with this new module.
+
+    The function raises a ValueError if the 'default' configuration is not provided in `pass_args`.
+
+    Returns:
+    - The modified graph with updated linear modules according to the provided configurations.
+    - An empty dictionary, which could potentially be used for returning additional metadata in future extensions of this function.
+    """
     main_config = pass_args.pop('config')
     default = main_config.pop('default', None)
     if default is None:
@@ -378,7 +414,6 @@ pass_config = {
 }
 
 channel_multipliers = [1, 2, 3, 4]
- 
 search_spaces = []
 for channel_multiplier_1 in channel_multipliers:
   for channel_multiplier_2 in channel_multipliers:
@@ -387,6 +422,10 @@ for channel_multiplier_1 in channel_multipliers:
     pass_config['seq_blocks_4']['config']['channel_multiplier_out'] = channel_multiplier_2
     pass_config['seq_blocks_6']['config']['channel_multiplier'] = channel_multiplier_2
     search_spaces.append(deepcopy(pass_config))
+
+
+print("Q3")
+
 
 # find the best accuracy and the best multiplier, json results are also stored
 best_accuracy, best_search_space = brute_force_search(search_spaces, json_file="/home/wfp23/ADL/mase/docs/labs/Channel_Multiplier/channel_multiplier_search_Q3.json")

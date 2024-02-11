@@ -38,16 +38,11 @@ class ChannelSizeModifier(SearchSpaceBase):
 
     def rebuild_model(self, sampled_config, is_eval_mode: bool = True):
         # set train/eval mode before creating mase graph
-        # import pdb
-        # pdb.set_trace()
-        # self.model.to(self.accelerator)
         if is_eval_mode:
             self.model.eval()
         else:
             self.model.train()
 
-        # if self.mg is None:
-            # The property is_fx_traceable indicates whether the model can be successfully traced by PyTorch FX.
         assert self.model_info.is_fx_traceable, "Model must be fx traceable"
         mg = MaseGraph(self.model)
         mg, _ = init_metadata_analysis_pass(mg, None)
@@ -71,13 +66,10 @@ class ChannelSizeModifier(SearchSpaceBase):
                 "mase_type": get_mase_type(node),
                 "mase_op": get_mase_op(node),
             }
-        # import pdb
-        # pdb.set_trace()
         # Build the search space
         choices = {}
         seed = self.config["seed"]
-        # import pdb
-        # pdb.set_trace()
+
         match self.config["setup"]["by"]:
             case "name":
                 # iterate through all the channel modifier nodes in the graph
@@ -91,7 +83,7 @@ class ChannelSizeModifier(SearchSpaceBase):
                             choices[n_name] = deepcopy(seed["default"])
             case _:
                 raise ValueError(
-                    f"Unknown quantization by: {self.config['setup']['by']}"
+                    f"Unknown channel multiplier by: {self.config['setup']['by']}"
                 )
 
         # flatten the choices and choice_lengths
@@ -103,33 +95,6 @@ class ChannelSizeModifier(SearchSpaceBase):
     def flattened_indexes_to_config(self, indexes: dict[str, int]):
         """
         Convert sampled flattened indexes to a nested config which will be passed to `rebuild_model`.
-
-        ---
-        For example:
-        ```python
-        >>> indexes = {
-            "conv1/config/name": 0,
-            "conv1/config/bias_frac_width": 1,
-            "conv1/config/bias_width": 3,
-            ...
-        }
-        >>> choices_flattened = {
-            "conv1/config/name": ["integer", ],
-            "conv1/config/bias_frac_width": [5, 6, 7, 8],
-            "conv1/config/bias_width": [3, 4, 5, 6, 7, 8],
-            ...
-        }
-        >>> flattened_indexes_to_config(indexes)
-        {
-            "conv1": {
-                "config": {
-                    "name": "integer",
-                    "bias_frac_width": 6,
-                    "bias_width": 6,
-                    ...
-                }
-            }
-        }
         """
         flattened_config = {}
         for k, v in indexes.items():

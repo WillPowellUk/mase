@@ -16,31 +16,48 @@ CHANNEL_OP = (
     "relu",
     "batchnorm1d",
 )
-
-def instantiate_linear(in_features, out_features, bias):
-    if bias is not None:
-        bias = True
-    return nn.Linear(
-        in_features=in_features,
-        out_features=out_features,
-        bias=bias)
-
-def instantiate_relu(inplace):
-    return ReLU(inplace)
-
-def instantiate_batchnorm(num_features, eps, momentum, affine, track_running_stats):
-    return nn.BatchNorm1d(num_features, eps, momentum, affine, track_running_stats)
-
-
-def get_config(config: dict, name: str):
-    if name in config:
-        return config[name]["config"]
-    else:
-        return config["default"]["config"]
     
 
 def redefine_transform_pass(graph, pass_args=None):
+    """
+    Redefines the transformation pass of a given graph based on specific configuration parameters.
 
+    :param graph: The input graph to be transformed.
+    :type graph: MaseGraph
+
+    :param pass_args: Additional arguments for the transformation, including configuration details for each layer.
+    :type pass_args: dict, optional
+
+    :return: The transformed graph along with an empty dictionary (placeholder for future use).
+    :rtype: tuple
+
+    :raises ValueError: If the default configuration is not provided in `pass_args`.
+
+    This function iterates through each node in the graph's function representation (fx_graph). It applies transformation
+    passes according to the configuration provided in `pass_args`. These transformations include redefining linear, ReLU,
+    and BatchNorm1d layers with new parameters. The function ensures that the transformations are applied correctly by
+    adjusting parameters such as input/output features and layer-specific configurations based on the node's characteristics
+    and the provided configuration. The transformation logic includes handling for different naming schemes and
+    adjustments based on previous layer configurations to ensure consistency in the transformed graph. It is essential
+    to provide a default configuration in `pass_args` to avoid a ValueError.
+    """
+    def create_linear_layer(in_features, out_features, bias):
+        # Creates a linear layer for a neural network with specified input/output features and bias option.
+        if bias is not None:  # Ensures bias is explicitly enabled if provided; this condition is ineffective due to logic error.
+            bias = True
+        return nn.Linear(
+            in_features=in_features,
+            out_features=out_features,
+            bias=bias)  # Returns an instance of the linear layer.
+
+    def create_relu_inplace(inplace):
+        # Returns a ReLU (Rectified Linear Unit) activation layer, with an option to do the operation in-place.
+        return ReLU(inplace)  # Inplace determines if the input tensor is modified directly.
+
+    def create_batchnorm_1d_layer(num_features, eps, momentum, affine, track_running_stats):
+        # Initializes a 1D batch normalization layer with specific parameters.
+        return nn.BatchNorm1d(num_features, eps, momentum, affine, track_running_stats)  # Returns an instance of BatchNorm1d.
+    
     main_config = pass_args.pop('config')
 
     default = main_config.pop('default', None)
@@ -78,7 +95,7 @@ def redefine_transform_pass(graph, pass_args=None):
                 elif name == "input_only":
                     in_features = in_features * pre_in
                     out_features = ori_module.out_features
-                new_module = instantiate_linear(in_features, out_features, bias)
+                new_module = create_linear_layer(in_features, out_features, bias)
                 parent_name, name = get_parent_name(node.target)
                 setattr(graph.modules[parent_name], name, new_module)
             
@@ -87,7 +104,7 @@ def redefine_transform_pass(graph, pass_args=None):
             name = config.get("name")
             if name:
                 ori_module = graph.modules[node.target]
-                new_module = instantiate_relu(ori_module.inplace)
+                new_module = create_relu_inplace(ori_module.inplace)
                 setattr(graph.modules[node.target], "inplace", new_module.inplace)
         
         # Process BatchNorm1d layers
@@ -96,7 +113,7 @@ def redefine_transform_pass(graph, pass_args=None):
             if name:
                 ori_module = graph.modules[node.target]
                 # Instantiate a new BatchNorm1d with the original module's parameters
-                new_module = instantiate_batchnorm(
+                new_module = create_batchnorm_1d_layer(
                     ori_module.num_features, ori_module.eps, ori_module.momentum, 
                     ori_module.affine, ori_module.track_running_stats)
                 parent_name, child_name = get_parent_name(node.target)

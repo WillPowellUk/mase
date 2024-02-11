@@ -11,7 +11,7 @@ Three additional metrics which are very important to analyse are:
 
 ### 2. Implement some of these additional metrics and attempt to combine them with the accuracy or loss quality metric.
 
-The key metrics discussed in [Task 1](#1-explore-additional-metrics-that-can-serve-as-quality-metrics-for-the-search-process-for-example-you-can-consider-metrics-such-as-latency-model-size-or-the-number-of-flops-floating-point-operations-involved-in-the-model
+The key metrics discussed in [Q1](#1-explore-additional-metrics-that-can-serve-as-quality-metrics-for-the-search-process-for-example-you-can-consider-metrics-such-as-latency-model-size-or-the-number-of-flops-floating-point-operations-involved-in-the-model
 ) are now implemented in addition to accuracy and loss for the search-space defined. 
 
 In models predicting class probabilities, cross-entropy loss encourages accurate class prediction by penalizing incorrect probabilities. As loss decreases, accuracy typically increases, indicating better model performance. Cross-entropy, defined as $H(P^*, P) = -\sum_{i}{M} P^*(i) \log P(i)$, inversely mirrors accuracy measured by `MulticlassAccuracy`, which assesses overall class accuracy. Thus, only one metric is required to be measured and in this case we will use `MulticlassAccuracy`.
@@ -280,6 +280,7 @@ Average CPU Power Usage per Batch: 10.29W
 </table>
 
 *Figure 1: Brute force search space investigating the effect of data in frac widths and weights in frac widths in terms of accuracy, latency and GPU/CPU usage.*
+
 Accuracy showed to be very sporadic for this network due to the non-determinsitic nature of inference which is far more influential than the quantization of such a small model. Latency is not correlated to the frac width/data width since the quantization occurs during the forward pass in MASE. However, if quantization occured during initialization, increasing the quantization should result in a more larger latency. 
 
 CPU and GPU usuage also shows no corelation due to the quantization issue described above. This code measures the usuage by ensuring the GPU has 'warmed up' before taking a measurement. However for such a small model, the measurement for latency make not be very accuracte since the resolution of the `psutil` and `torch.cuda.Event` are both limited. However, this strategy may produce more precise outcomes when model size increases and thus inference and model training are larger. 
