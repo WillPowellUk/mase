@@ -243,3 +243,44 @@ def calculate_flops_mg_analysis_pass(graph, pass_args: dict):
 
     return graph, {"flop_module_breakdown": flop_calculations, "total_flops": total_flops}
 ```
+When the `jsc-tiny `model is used with a batch size of 8, the following output is produced:
+
+```
+Flop Calculation Breakdown:  
+
+{
+    BatchNorm1d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True): {
+        'total_parameters': 32,
+        'computations': 512,
+        'backward_computations': 512,
+        'input_buffer_size': 128,
+        'output_buffer_size': 128
+    }, 
+
+    ReLU(inplace=True): {
+        'total_parameters': 0,
+        'computations': 128,
+        'backward_computations': 128,
+        'input_buffer_size': 128,
+        'output_buffer_size': 128
+    }, 
+
+    Linear(in_features=16, out_features=5, bias=True): {
+        'total_parameters': 80,
+        'computations': 640.0,
+        'backward_computations': 1280.0,
+        'input_buffer_size': 128,
+        'output_buffer_size': 40
+    }, 
+
+    ReLU(inplace=True): {
+        'total_parameters': 0,
+        'computations': 40,
+        'backward_computations': 40,
+        'input_buffer_size': 40,
+        'output_buffer_size': 40
+    }
+}
+
+Total Flops: 1320.0
+```

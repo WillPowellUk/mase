@@ -29,7 +29,7 @@ from calc_modules_modified import calculate_modules
 logger = get_logger("chop")
 logger.setLevel(logging.INFO)
 
-batch_size = 8
+batch_size = 256
 model_name = "jsc-tiny"
 dataset_name = "jsc"
 

@@ -94,6 +94,7 @@ import psutil
 mg, _ = init_metadata_analysis_pass(mg, None)
 mg, _ = add_common_metadata_analysis_pass(mg, {"dummy_in": dummy_in})
 mg, _ = add_software_metadata_analysis_pass(mg, None)
+train(mg.model, model_info, data_module, data_module.dataset_info, task, optimizer, learning_rate, weight_decay, plt_trainer_args, auto_requeue, save_path, visualizer, load_name, load_type)
 
 metric = MulticlassAccuracy(num_classes=5)
 num_batchs = 5
@@ -281,9 +282,9 @@ Average CPU Power Usage per Batch: 10.29W
 
 *Figure 1: Brute force search space investigating the effect of data in frac widths and weights in frac widths in terms of accuracy, latency and GPU/CPU usage.*
 
-Accuracy showed to be very sporadic for this network due to the non-determinsitic nature of inference which is far more influential than the quantization of such a small model. Latency is not correlated to the frac width/data width since the quantization occurs during the forward pass in MASE. However, if quantization occured during initialization, increasing the quantization should result in a more larger latency. 
+Accuracy showed to be very sporadic for this network due to the non-determinsitic nature of inference which is far more influential than the quantization of such a small model. Latency is significantly correlated to the frac width/data width; even though the quantization occurs during the forward pass in MASE, the latency is still higher at high frac widths/data widths. 
 
-CPU and GPU usuage also shows no corelation due to the quantization issue described above. This code measures the usuage by ensuring the GPU has 'warmed up' before taking a measurement. However for such a small model, the measurement for latency make not be very accuracte since the resolution of the `psutil` and `torch.cuda.Event` are both limited. However, this strategy may produce more precise outcomes when model size increases and thus inference and model training are larger. 
+Even though the code measures GPU usuage by ensuring it has 'warmed up' before taking a measurement, the GPU measurement shows little correlation with the search space. For such a small model, the measurement of usage not be very accuracte since the resolution of the `psutil` and `torch.cuda.Event`. In addition other CPU processes were not controlled such as background ssh server etc. However, this strategy may produce more precise outcomes when model size increases and thus inference and model training are larger and the lower resolution of the measurements serve as less of an impact. 
 
 ### 3. Implement the brute-force search as an additional search method within the system, this would be a new search strategy in MASE.
 To integrate a brute-force search in addition to a TPE based search, the following code is modified:
